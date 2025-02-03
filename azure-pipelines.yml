@@ -1,75 +1,48 @@
-# ASP.NET Core (.NET Framework)
-# Build and test ASP.NET Core projects targeting the full .NET Framework.
-# Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
-
 trigger:
 - main
 
 pool:
-  vmImage: 'windows-latest'
-
-# Command line
-# Run a command line script using Bash on Linux and macOS and cmd.exe on Windows
-
+  vmImage: 'ubuntu-latest'
 
 variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
-
-
+  dockerImageName: 'devfabsalmeida/fabricio-azure-docker' # Seu repositório no Docker Hub
+  dockerTag: 'latest' # Você pode trocar por $(Build.BuildId) para tags únicas
 
 steps:
 
-# Command line
-# Run a command line script using Bash on Linux and macOS and cmd.exe on Windows
-
-- task: CmdLine@2
+- task: UseDotNet@2
+  displayName: 'Instalar .NET'
   inputs:
-    script: 'mkdir d:\a\1\MobEAD' 
-    #workingDirectory: # Optional
-    #failOnStderr: false # Optional
+    packageType: 'sdk'
+    version: '6.x' # Versão do .NET do projeto
 
-- task: NuGetToolInstaller@1
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
-
-
-#- task: SonarQubePrepare@4
-#  inputs:
-#    SonarQube: 'Sonarqube Osanam Azure'
-#    scannerMode: 'CLI'
-#    configMode: 'manual'
-#    cliProjectKey: 'Unyleya_-_DevOps_Unyleya_-_DevOps'
-#    cliProjectName: 'Unyleya - DevOps'
-#    cliSources: '$(System.DefaultWorkingDirectory)'
-#
-#- powershell: |
-#    $params = "$env:SONARQUBE_SCANNER_PARAMS" -replace '"sonar.branch.name":"[\w/,-.]*"\,?'
-#    Write-Host "##vso[task.setvariable variable=SONARQUBE_SCANNER_PARAMS]$params"
 - task: VSBuild@1
+  displayName: 'Compilar projeto'
   inputs:
     solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DeployIisAppPath="Default Web Site"'
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
 
-- task: VSTest@2
+- task: Docker@2
+  displayName: 'Login no Docker Hub'
   inputs:
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    command: 'login'
+    containerRegistry: 'docker-hub-connection' # Nome da Service Connection criada no Azure DevOps
 
-#- task: SonarQubeAnalyze@4
-
-#- task: SonarQubePublish@4
-#  inputs:
-#    pollingTimeoutSec: '300'
-
-- task: PublishPipelineArtifact@1
+- task: Docker@2
+  displayName: 'Build da imagem Docker'
   inputs:
-       artifactName: # 'drop'
+    command: 'build'
+    Dockerfile: '**/Dockerfile' # Caminho do Dockerfile no repositório
+    repository: '$(dockerImageName)'
+    tags: '$(dockerTag)'
 
- 
-
+- task: Docker@2
+  displayName: 'Push da imagem para o Docker Hub'
+  inputs:
+    command: 'push'
+    repository: '$(dockerImageName)'
+    tags: '$(dockerTag)'
