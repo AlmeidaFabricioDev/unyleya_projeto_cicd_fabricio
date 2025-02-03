@@ -1,0 +1,48 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+  dockerImageName: 'devfabsalmeida/fabricio-azure-docker' # Seu repositório no Docker Hub
+  dockerTag: 'latest' # Você pode trocar por $(Build.BuildId) para tags únicas
+
+steps:
+
+- task: UseDotNet@2
+  displayName: 'Instalar .NET'
+  inputs:
+    packageType: 'sdk'
+    version: '6.x' # Versão do .NET do projeto
+
+- task: VSBuild@1
+  displayName: 'Compilar projeto'
+  inputs:
+    solution: '$(solution)'
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
+
+- task: Docker@2
+  displayName: 'Login no Docker Hub'
+  inputs:
+    command: 'login'
+    containerRegistry: 'docker-hub-connection' # Nome da Service Connection criada no Azure DevOps
+
+- task: Docker@2
+  displayName: 'Build da imagem Docker'
+  inputs:
+    command: 'build'
+    Dockerfile: '**/Dockerfile' # Caminho do Dockerfile no repositório
+    repository: '$(dockerImageName)'
+    tags: '$(dockerTag)'
+
+- task: Docker@2
+  displayName: 'Push da imagem para o Docker Hub'
+  inputs:
+    command: 'push'
+    repository: '$(dockerImageName)'
+    tags: '$(dockerTag)'
